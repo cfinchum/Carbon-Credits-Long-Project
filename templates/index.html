@@ -5,13 +5,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BlockCarbon Tool</title>
-    <link rel="stylesheet" href="styles/style.css">
+    <link rel="stylesheet" href="static/styles/style.css">
 </head>
 
 <body>
     <header id="header">
         <div class="logo-container">
-            <img src="images/BlockCarbon.png" alt="BlockCarbon Logo" id="logo">
+            <img src="static/images/BlockCarbon.png" alt="BlockCarbon Logo" id="logo">
         </div>
         <h1>BlockCarbon</h1>
     </header>
@@ -36,10 +36,10 @@
     </section>
 
     <section id="satellite-image-section" style="display: none;">
-        <img id="satellite-image" src="images/amazon_rain_forest.jpg" alt="Satellite View">
+        <div id="coordinates-display"></div>
+        <img id="satellite-image" src="static/images/amazon_rain_forest.jpg" alt="Satellite View">
     </section>
 
-    <script src="scripts/script.js"></script>
-
+    <script src="{{ url_for('static', filename='scripts/script.js') }}" defer></script>
 
 </html>

@@ -1,52 +1,69 @@
-from flask import Flask, render_template, request, jsonify, send_file
+from flask import Flask, request, jsonify, render_template
 import ee
-
-# Initialize Earth Engine
-ee.Initialize(project='vital-invention-439317-b6')
 
 app = Flask(__name__)
 
+# Set up Earth Engine authentication
+try:
+    ee.Initialize()
+except ee.EEException as e:
+    print("Google Earth Engine initialization error:", e)
+
 @app.route('/')
 def index():
-    return render_template('getimage.html')
+    return render_template('index.html')
 
-@app.route('/classify', methods=['POST'])
-def classify_area():
+@app.route('/submit_coordinates', methods=['POST'])
+def submit_coordinates():
     data = request.get_json()
-    lat1, lon1 = float(data['lat1']), float(data['lon1'])
-    lat2, lon2 = float(data['lat2']), float(data['lon2'])
 
-    # Define the area as a bounding box around the coordinates
-    region = ee.Geometry.Rectangle([lon1, lat1, lon2, lat2])
+    try:
+        # Extract coordinates from user input 
+        top_left_lat = float(data['top_left_latitude'])
+        top_left_lon = float(data['top_left_longitude'])
+        bottom_right_lat = float(data['bottom_right_latitude'])
+        bottom_right_lon = float(data['bottom_right_longitude'])
 
-    # Load satellite imagery and classify
-    image = ee.ImageCollection("COPERNICUS/S2").filterBounds(region).filterDate('2022-01-01', '2022-12-31').median()
+        # Determine top, bottom, left, and right coordinates so it works with GEE
+        top_lat = max(top_left_lat, bottom_right_lat)
+        bottom_lat = min(top_left_lat, bottom_right_lat)
+        left_lon = min(top_left_lon, bottom_right_lon)
+        right_lon = max(top_left_lon, bottom_right_lon)
 
-    # Sample vegetation and water as dummy training points
-    vegetation = ee.Feature(region.centroid(), {'landcover': 0})
-    water = ee.Feature(region.centroid().translate(0.01, 0.01), {'landcover': 1})
-    training_data = ee.FeatureCollection([vegetation, water])
+        print(f"Coordinates for rectangle: top_lat={top_lat}, bottom_lat={bottom_lat}, left_lon={left_lon}, right_lon={right_lon}")
 
-    # Train classifier and classify
-    classifier = ee.Classifier.smileCart().train(features=training_data, classProperty='landcover', inputProperties=['B4', 'B3', 'B2'])
-    classified = image.select(['B4', 'B3', 'B2']).classify(classifier).clip(region)
+        # Create the Rectangle geometry
+        rectangle = ee.Geometry.Rectangle([left_lon, bottom_lat, right_lon, top_lat])
+        print("Rectangle created successfully.")
 
-    # Calculate area for each class
-    stats = classified.reduceRegion(
-        reducer=ee.Reducer.frequencyHistogram(),
-        geometry=region,
-        scale=10,
-        maxPixels=1e9
-    ).getInfo()
+        # Fetch and process the satellite image using GEE 
+        s2 = ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED') \
+            .filter(ee.Filter.lt('CLOUDY_PIXEL_PERCENTAGE', 30)) \
+            .filter(ee.Filter.date('2021-01-01', '2021-12-31')) \
+            .filterBounds(rectangle)
+        
+        print("Filtered ImageCollection created.")
 
-    # Extract class areas as percentages
-    vegetation_area = stats.get(0, 0) / sum(stats.values()) * 100 if stats else 0
-    water_area = stats.get(1, 0) / sum(stats.values()) * 100 if stats else 0
+        # Take a median composite of the image and visualize it
+        composite = s2.median().visualize(bands=['B4', 'B3', 'B2'], min=0, max=3000)
 
-    return jsonify({
-        'vegetation_percentage': vegetation_area,
-        'water_percentage': water_area
-    })
+        # Generate the URL for the image
+        image_url = composite.getThumbURL({'region': rectangle, 'dimensions': 500})
+        print(f"Image URL generated: {image_url}")
+
+        # Return the thumbnail URL and coordinates to the frontend
+        return jsonify({
+            'image_url': image_url,
+            'top_left_latitude': top_lat,
+            'top_left_longitude': left_lon,
+            'bottom_right_latitude': bottom_lat,
+            'bottom_right_longitude': right_lon
+        })
+
+    except Exception as e:
+        print("Error processing coordinates:", e)
+        return jsonify({'error': 'An error occurred while processing the coordinates.'}), 500
 
 if __name__ == '__main__':
     app.run(debug=True)
+

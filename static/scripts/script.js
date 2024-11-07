@@ -30,13 +30,25 @@ document.getElementById('coordinate-form').addEventListener('submit', async func
             <p>Bottom-Right: (${data.bottom_right_latitude}, ${data.bottom_right_longitude})</p>
         `;
 
-        // Update the image source with the generated image URL
+        const images = [data.image_url, data.landcover_image_url];
+        let currentIndex = 0;
+
         const imageElement = document.getElementById('satellite-image');
-        imageElement.src = data.image_url;
+        imageElement.src = images[currentIndex];
 
         document.getElementById('header').style.display = 'none';
         document.getElementById('coordinates-input').style.display = 'none';
         document.getElementById('satellite-image-section').style.display = 'flex';
+
+        document.getElementById('next-button').addEventListener('click', () => {
+            currentIndex = (currentIndex + 1) % images.length;
+            imageElement.src = images[currentIndex];
+        });
+
+        document.getElementById('prev-button').addEventListener('click', () => {
+            currentIndex = (currentIndex - 1 + images.length) % images.length;
+            imageElement.src = images[currentIndex];
+        });
 
     } catch (error) {
         console.error('Error:', error);

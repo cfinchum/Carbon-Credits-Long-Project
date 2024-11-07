@@ -30,11 +30,8 @@ def submit_coordinates():
         left_lon = min(top_left_lon, bottom_right_lon)
         right_lon = max(top_left_lon, bottom_right_lon)
 
-        print(f"Coordinates for rectangle: top_lat={top_lat}, bottom_lat={bottom_lat}, left_lon={left_lon}, right_lon={right_lon}")
-
         # Create the Rectangle geometry
         rectangle = ee.Geometry.Rectangle([left_lon, bottom_lat, right_lon, top_lat])
-        print("Rectangle created successfully.")
 
         # Fetch and process the satellite image using GEE 
         s2 = ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED') \
@@ -42,24 +39,31 @@ def submit_coordinates():
             .filter(ee.Filter.date('2021-01-01', '2021-12-31')) \
             .filterBounds(rectangle)
         
-        print("Filtered ImageCollection created.")
-
         # Take a median composite of the image and visualize it
         composite = s2.median().visualize(bands=['B4', 'B3', 'B2'], min=0, max=3000)
-
-        # Generate the URL for the image
         image_url = composite.getThumbURL({'region': rectangle, 'dimensions': 500})
-        print(f"Image URL generated: {image_url}")
 
-        # Return the thumbnail URL and coordinates to the frontend
+        # Load and visualize the ESA WorldCover data
+        landcover = ee.Image('ESA/WorldCover/v100/2020')
+        landcoverVis = {
+            'min': 10,
+            'max': 90,
+            'palette': [
+                '006400', 'ffbb22', 'ffff4c', 'f096ff', 'fa0000', 
+                'b4b4b4', 'f0f0f0', '0064c8', '0096a0', '00cf75', 'fae6a0'
+            ]
+        }
+        landcover_image = landcover.clip(rectangle).visualize(**landcoverVis)
+        landcover_image_url = landcover_image.getThumbURL({'region': rectangle, 'dimensions': 500})
+
         return jsonify({
             'image_url': image_url,
+            'landcover_image_url': landcover_image_url,
             'top_left_latitude': top_lat,
             'top_left_longitude': left_lon,
             'bottom_right_latitude': bottom_lat,
             'bottom_right_longitude': right_lon
         })
-
     except Exception as e:
         print("Error processing coordinates:", e)
         return jsonify({'error': 'An error occurred while processing the coordinates.'}), 500

@@ -37,9 +37,15 @@
 
     <section id="satellite-image-section" style="display: none;">
         <div id="coordinates-display"></div>
-        <img id="satellite-image" src="" alt="Satellite View">
+
+        <div class="image-carousel">
+            <button id="prev-button">&#9664;</button>
+            <img id="satellite-image" src="" alt="Satellite View">
+            <button id="next-button">&#9654;</button>
+        </div>
     </section>
 
     <script src="{{ url_for('static', filename='scripts/script.js') }}" defer></script>
+</body>
 
 </html>

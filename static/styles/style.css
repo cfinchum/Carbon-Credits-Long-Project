@@ -92,7 +92,10 @@ button:hover {
     background-color: #0056b3;
 }
 
-/* Satellite Image Section Styling */
+#coordinates-display {
+    margin-right: 50px;
+}
+
 #satellite-image-section {
     display: flex;
     justify-content: center;
@@ -107,6 +110,14 @@ button:hover {
     border-radius: 10px;
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
 }
+
+.image-carousel {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+
 
 @media (max-width: 600px) {
     #logo {

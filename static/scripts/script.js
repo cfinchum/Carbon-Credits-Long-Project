@@ -24,42 +24,34 @@ document.getElementById('coordinate-form').addEventListener('submit', async func
 
         const data = await response.json();
 
-        // Display the coordinates
         document.getElementById('coordinates-display').innerHTML = `
             <h3>Coordinates:</h3>
             <p>Top-Left: (${data.top_left_latitude}, ${data.top_left_longitude})</p>
             <p>Bottom-Right: (${data.bottom_right_latitude}, ${data.bottom_right_longitude})</p>
         `;
 
-        // Update the image sources with the generated image URLs
-        document.getElementById('satellite-image').src = data.true_color_url;
-        document.getElementById('classified-image').src = data.classified_image_url;
+        const images = [data.image_url, data.landcover_image_url];
+        let currentIndex = 0;
 
-        // Display area statistics
-        const areaStats = data.area_stats;
+        const imageElement = document.getElementById('satellite-image');
+        imageElement.src = images[currentIndex];
 
-        // Map class IDs to land cover names
-        const classNames = {
-            0: 'Urban',
-            1: 'Bare Land',
-            2: 'Water',
-            3: 'Vegetation'
-        };
-
-        let statsHtml = '<h3>Area Statistics (in hectares):</h3><ul>';
-        for (const [classId, area] of Object.entries(areaStats)) {
-            const className = classNames[classId] || `Class ${classId}`;
-            statsHtml += `<li><strong>${className}:</strong> ${area.toFixed(2)} ha</li>`;
-        }
-        statsHtml += '</ul>';
-        document.getElementById('area-stats').innerHTML = statsHtml;
-
-        // Hide the input section and display the results section
         document.getElementById('header').style.display = 'none';
         document.getElementById('coordinates-input').style.display = 'none';
-        document.getElementById('results-section').style.display = 'flex';
+        document.getElementById('satellite-image-section').style.display = 'flex';
+
+        document.getElementById('next-button').addEventListener('click', () => {
+            currentIndex = (currentIndex + 1) % images.length;
+            imageElement.src = images[currentIndex];
+        });
+
+        document.getElementById('prev-button').addEventListener('click', () => {
+            currentIndex = (currentIndex - 1 + images.length) % images.length;
+            imageElement.src = images[currentIndex];
+        });
 
     } catch (error) {
         console.error('Error:', error);
     }
 });
+

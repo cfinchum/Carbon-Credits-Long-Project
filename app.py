@@ -3,9 +3,9 @@ import ee
 
 app = Flask(__name__)
 
-# Set up Earth Engine authentication
+# Initialize Earth Engine
 try:
-    ee.Initialize()
+    ee.Initialize(project='vital-invention-439317-b6')
 except ee.EEException as e:
     print("Google Earth Engine initialization error:", e)
 
@@ -18,13 +18,13 @@ def submit_coordinates():
     data = request.get_json()
 
     try:
-        # Extract coordinates from user input 
+        # Extract coordinates from user input
         top_left_lat = float(data['top_left_latitude'])
         top_left_lon = float(data['top_left_longitude'])
         bottom_right_lat = float(data['bottom_right_latitude'])
         bottom_right_lon = float(data['bottom_right_longitude'])
 
-        # Determine top, bottom, left, and right coordinates so it works with GEE
+        # Determine the correct top, bottom, left, right coordinates
         top_lat = max(top_left_lat, bottom_right_lat)
         bottom_lat = min(top_left_lat, bottom_right_lat)
         left_lon = min(top_left_lon, bottom_right_lon)
@@ -36,24 +36,145 @@ def submit_coordinates():
         rectangle = ee.Geometry.Rectangle([left_lon, bottom_lat, right_lon, top_lat])
         print("Rectangle created successfully.")
 
-        # Fetch and process the satellite image using GEE 
+        # Fetch and process the satellite image using GEE
         s2 = ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED') \
             .filter(ee.Filter.lt('CLOUDY_PIXEL_PERCENTAGE', 30)) \
-            .filter(ee.Filter.date('2021-01-01', '2021-12-31')) \
+            .filter(ee.Filter.date('2020-01-01', '2020-12-31')) \
             .filterBounds(rectangle)
-        
+
         print("Filtered ImageCollection created.")
 
-        # Take a median composite of the image and visualize it
-        composite = s2.median().visualize(bands=['B4', 'B3', 'B2'], min=0, max=3000)
+        # Take a median composite of the image
+        composite = s2.median()
 
-        # Generate the URL for the image
-        image_url = composite.getThumbURL({'region': rectangle, 'dimensions': 500})
-        print(f"Image URL generated: {image_url}")
+        # Visualization parameters for the true color image
+        true_color_vis = {
+            'bands': ['B4', 'B3', 'B2'],
+            'min': 0,
+            'max': 3000
+        }
 
-        # Return the thumbnail URL and coordinates to the frontend
+        # Generate the URL for the true color image
+        true_color_url = composite.clip(rectangle).getThumbURL({
+            'region': rectangle,
+            'dimensions': 500,
+            **true_color_vis
+        })
+        print(f"True color image URL generated: {true_color_url}")
+
+        # --- Land Cover Classification using ESA WorldCover ---
+
+        # Import the ESA WorldCover dataset
+        worldcover = ee.Image('ESA/WorldCover/v100/2020').select('Map')
+
+        # Define your classes based on WorldCover legends
+        # 0: Urban (Class 50)
+        # 1: Bare Land (Class 40)
+        # 2: Water (Class 80)
+        # 3: Vegetation (Classes 10, 20, 30, 60, 70, 90, 100)
+
+        # Create masks for each class
+        urban_mask = worldcover.eq(50)
+        bare_mask = worldcover.eq(40)
+        water_mask = worldcover.eq(80)
+        vegetation_mask = worldcover.remap(
+            [10, 20, 30, 60, 70, 90, 100],
+            [1, 1, 1, 1, 1, 1, 1]
+        )
+
+        # Sample points for each class
+        urban_points = urban_mask.selfMask().sample(
+            region=rectangle, scale=10, numPixels=500, seed=0, geometries=True
+        ).map(lambda f: f.set('landcover', 0))
+
+        bare_points = bare_mask.selfMask().sample(
+            region=rectangle, scale=10, numPixels=500, seed=1, geometries=True
+        ).map(lambda f: f.set('landcover', 1))
+
+        water_points = water_mask.selfMask().sample(
+            region=rectangle, scale=10, numPixels=500, seed=2, geometries=True
+        ).map(lambda f: f.set('landcover', 2))
+
+        vegetation_points = vegetation_mask.selfMask().sample(
+            region=rectangle, scale=10, numPixels=500, seed=3, geometries=True
+        ).map(lambda f: f.set('landcover', 3))
+
+        # Merge all samples into one FeatureCollection
+        training_samples = urban_points.merge(bare_points).merge(water_points).merge(vegetation_points)
+
+        print("Training samples collected.")
+
+        # Sample the composite image at the locations of the training samples
+        training = composite.sampleRegions(
+            collection=training_samples,
+            properties=['landcover'],
+            scale=10
+        )
+
+        # Train a Random Forest classifier
+        classifier = ee.Classifier.smileRandomForest(50).train(
+            features=training,
+            classProperty='landcover',
+            inputProperties=composite.bandNames()
+        )
+
+        # Classify the composite image
+        classified = composite.classify(classifier)
+
+        # Define a color palette for visualization
+        palette = ['#cc6d8f', '#ffc107', '#1e88e5', '#004d40']
+
+        # Visualization parameters for the classified image
+        classified_vis = {
+            'min': 0,
+            'max': 3,
+            'palette': palette
+        }
+
+        # Generate the URL for the classified image
+        classified_image_url = classified.clip(rectangle).getThumbURL({
+            'region': rectangle,
+            'dimensions': 500,
+            **classified_vis
+        })
+        print(f"Classified image URL generated: {classified_image_url}")
+
+        # Calculate area statistics
+        # First, reproject the classified image to a fixed scale
+        classified_proj = classified.clip(rectangle).reproject('EPSG:3857', None, 30)
+
+        # Calculate pixel area in square meters
+        pixel_area = ee.Image.pixelArea()
+
+        # Calculate the area for each class
+        class_areas = pixel_area.addBands(classified_proj).reduceRegion(
+            reducer=ee.Reducer.sum().group(
+                groupField=1,
+                groupName='landcover'
+            ),
+            geometry=rectangle,
+            scale=30,
+            maxPixels=1e9
+        )
+
+        # Extract the area results
+        group_dict = class_areas.get('groups').getInfo()
+
+        # Map land cover class IDs to area in hectares
+        area_stats = {}
+        for group in group_dict:
+            class_id = int(group['landcover'])
+            area_m2 = group['sum']
+            area_ha = area_m2 / 10000  # Convert square meters to hectares
+            area_stats[class_id] = area_ha
+
+        print(f"Area statistics: {area_stats}")
+
+        # Return the data to the frontend
         return jsonify({
-            'image_url': image_url,
+            'true_color_url': true_color_url,
+            'classified_image_url': classified_image_url,
+            'area_stats': area_stats,
             'top_left_latitude': top_lat,
             'top_left_longitude': left_lon,
             'bottom_right_latitude': bottom_lat,
@@ -66,4 +187,3 @@ def submit_coordinates():
 
 if __name__ == '__main__':
     app.run(debug=True)
-

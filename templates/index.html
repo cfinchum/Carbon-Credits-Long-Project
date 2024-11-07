@@ -35,11 +35,17 @@
         </form>
     </section>
 
-    <section id="satellite-image-section" style="display: none;">
+    <section id="results-section" style="display: none;">
         <div id="coordinates-display"></div>
+        <h2>True Color Image:</h2>
         <img id="satellite-image" src="" alt="Satellite View">
+        <h2>Land Cover Classification:</h2>
+        <img id="classified-image" src="" alt="Classified Satellite View">
+        <div id="area-stats"></div>
     </section>
 
     <script src="{{ url_for('static', filename='scripts/script.js') }}" defer></script>
+
+</body>
 
 </html>

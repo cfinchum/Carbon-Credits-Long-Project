@@ -1,4 +1,5 @@
 document.getElementById('coordinate-form').addEventListener('submit', async function (event) {
+
     event.preventDefault();
 
     const topLeftLatitude = document.getElementById('top-left-latitude').value;
@@ -24,10 +25,15 @@ document.getElementById('coordinate-form').addEventListener('submit', async func
 
         const data = await response.json();
 
+        if (data.error) {
+            alert(data.error);
+            return;
+        }
+
         document.getElementById('coordinates-display').innerHTML = `
             <h3>Coordinates:</h3>
-            <p>Top-Left: (${data.top_left_latitude}, ${data.top_left_longitude})</p>
-            <p>Bottom-Right: (${data.bottom_right_latitude}, ${data.bottom_right_longitude})</p>
+            <p>Top-Left: (${data.top_left_latitude.toFixed(6)}, ${data.top_left_longitude.toFixed(6)})</p>
+            <p>Bottom-Right: (${data.bottom_right_latitude.toFixed(6)}, ${data.bottom_right_longitude.toFixed(6)})</p>
         `;
 
         const images = [data.image_url, data.landcover_image_url];
@@ -35,6 +41,31 @@ document.getElementById('coordinate-form').addEventListener('submit', async func
 
         const imageElement = document.getElementById('satellite-image');
         imageElement.src = images[currentIndex];
+
+        // Generate Legend
+        const legendContainer = document.getElementById('legend-items');
+        legendContainer.innerHTML = ''; // Clear any existing legend
+
+        // Sort the classes by key to maintain order
+        const sortedClasses = Object.keys(data.landcover_classes).sort((a, b) => a - b);
+
+        sortedClasses.forEach(key => {
+            const classInfo = data.landcover_classes[key];
+            const legendItem = document.createElement('div');
+            legendItem.classList.add('legend-item');
+
+            const colorBox = document.createElement('span');
+            colorBox.classList.add('legend-color');
+            colorBox.style.backgroundColor = classInfo.color;
+
+            const label = document.createElement('span');
+            label.classList.add('legend-label');
+            label.textContent = classInfo.name;
+
+            legendItem.appendChild(colorBox);
+            legendItem.appendChild(label);
+            legendContainer.appendChild(legendItem);
+        });
 
         document.getElementById('header').style.display = 'none';
         document.getElementById('coordinates-input').style.display = 'none';
@@ -52,6 +83,6 @@ document.getElementById('coordinate-form').addEventListener('submit', async func
 
     } catch (error) {
         console.error('Error:', error);
+        alert('An error occurred while processing your request.');
     }
 });
-

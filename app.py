@@ -9,6 +9,19 @@ try:
 except ee.EEException as e:
     print("Google Earth Engine initialization error:", e)
 
+# Define land cover classes and their corresponding colors
+landcover_classes = {
+    10: {"name": "Tree Cover", "color": "#006400"},        # Dark Green
+    20: {"name": "Shrubland", "color": "#228B22"},         # Forest Green
+    30: {"name": "Grassland", "color": "#7CFC00"},         # Lawn Green
+    40: {"name": "Cropland", "color": "#FFD700"},          # Gold
+    50: {"name": "Built-up", "color": "#A9A9A9"},           # Dark Gray
+    60: {"name": "Bare / Sparse Vegetation", "color": "#DEB887"},  # Burly Wood
+    70: {"name": "Snow and Ice", "color": "#FFFFFF"},       # White
+    80: {"name": "Permanent Water Bodies", "color": "#1E90FF"},    # Dodger Blue
+    90: {"name": "Herbaceous Wetland", "color": "#00CED1"},       # Dark Turquoise
+}
+
 @app.route('/')
 def index():
     return render_template('index.html')
@@ -48,10 +61,7 @@ def submit_coordinates():
         landcoverVis = {
             'min': 10,
             'max': 90,
-            'palette': [
-                '006400', 'ffbb22', 'ffff4c', 'f096ff', 'fa0000', 
-                'b4b4b4', 'f0f0f0', '0064c8', '0096a0', '00cf75', 'fae6a0'
-            ]
+            'palette': [class_info["color"] for class_info in landcover_classes.values()]
         }
         landcover_image = landcover.clip(rectangle).visualize(**landcoverVis)
         landcover_image_url = landcover_image.getThumbURL({'region': rectangle, 'dimensions': 500})
@@ -62,7 +72,8 @@ def submit_coordinates():
             'top_left_latitude': top_lat,
             'top_left_longitude': left_lon,
             'bottom_right_latitude': bottom_lat,
-            'bottom_right_longitude': right_lon
+            'bottom_right_longitude': right_lon,
+            'landcover_classes': landcover_classes
         })
     except Exception as e:
         print("Error processing coordinates:", e)
@@ -70,4 +81,3 @@ def submit_coordinates():
 
 if __name__ == '__main__':
     app.run(debug=True)
-

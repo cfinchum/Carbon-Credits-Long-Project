@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BlockCarbon Tool</title>
+    <link rel="stylesheet" href="static/styles/style.css">
+</head>
+
+<body>
+    <header id="header">
+        <div class="logo-container">
+            <img src="static/images/BlockCarbon.png" alt="BlockCarbon Logo" id="logo">
+        </div>
+        <h1>BlockCarbon</h1>
+    </header>
+
+    <section id="coordinates-input">
+        <h2>Enter Project Area Coordinates</h2>
+        <form id="coordinate-form">
+            <label>Top-Left Coordinates:</label>
+            <div class="input-group">
+                <input type="text" id="top-left-latitude" placeholder="Latitude" required>
+                <input type="text" id="top-left-longitude" placeholder="Longitude" required>
+            </div>
+
+            <label>Bottom-Right Coordinates:</label>
+            <div class="input-group">
+                <input type="text" id="bottom-right-latitude" placeholder="Latitude" required>
+                <input type="text" id="bottom-right-longitude" placeholder="Longitude" required>
+            </div>
+
+            <button type="button" onclick="submitCoordinates()">Submit</button>
+        </form>
+    </section>
+
+    <section id="satellite-image-section" style="display: none;">
+        <div id="coordinates-display"></div>
+        <img id="satellite-image" src="static/images/amazon_rain_forest.jpg" alt="Satellite View">
+        <div id="classification-results"></div>
+    </section>
+
+    <script>
+        async function submitCoordinates() {
+            const lat1 = document.getElementById('top-left-latitude').value;
+            const lon1 = document.getElementById('top-left-longitude').value;
+            const lat2 = document.getElementById('bottom-right-latitude').value;
+            const lon2 = document.getElementById('bottom-right-longitude').value;
+
+            try {
+                const response = await fetch('/classify', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ lat1, lon1, lat2, lon2 })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    displayResults(data);
+                } else {
+                    console.error('Error:', response.statusText);
+                }
+            } catch (error) {
+                console.error('Error:', error);
+            }
+        }
+
+        function displayResults(data) {
+            const resultSection = document.getElementById('classification-results');
+            resultSection.innerHTML = `
+                <p>Vegetation Area: ${data.vegetation_percentage}%</p>
+                <p>Water Area: ${data.water_percentage}%</p>
+            `;
+            document.getElementById('satellite-image-section').style.display = 'block';
+        }
+    </script>
+</body>
+
+</html>

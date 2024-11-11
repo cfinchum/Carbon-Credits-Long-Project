@@ -10,47 +10,37 @@
 
 <body>
     <header id="header">
-        <div class="logo-container">
-            <img src="{{ url_for('static', filename='images/BlockCarbon.png') }}" alt="BlockCarbon Logo" id="logo">
+        <div class="left-header">
+            <div class="logo-container">
+                <img src="{{ url_for('static', filename='images/BlockCarbon.png') }}" alt="BlockCarbon Logo" id="logo">
+            </div>
+            <h1><a href="{{ url_for('index') }}" class="header-link">BlockCarbon</a></h1>
         </div>
-        <h1>BlockCarbon</h1>
+        <div class="developer-attribution">
+            <span>Developed by Students at UMB</span>
+        </div>
     </header>
+
+    <hr class="header-line">
 
     <section id="coordinates-input">
         <h2>Enter Project Area Coordinates</h2>
-        <form id="coordinate-form">
+        <form id="coordinate-form" action="{{ url_for('submit_coordinates') }}" method="POST">
             <label>Top-Left Coordinates:</label>
             <div class="input-group">
-                <input type="text" id="top-left-latitude" placeholder="Latitude" required>
-                <input type="text" id="top-left-longitude" placeholder="Longitude" required>
+                <input type="number" step="any" name="top_left_latitude" placeholder="Latitude" required>
+                <input type="number" step="any" name="top_left_longitude" placeholder="Longitude" required>
             </div>
 
             <label>Bottom-Right Coordinates:</label>
             <div class="input-group">
-                <input type="text" id="bottom-right-latitude" placeholder="Latitude" required>
-                <input type="text" id="bottom-right-longitude" placeholder="Longitude" required>
+                <input type="number" step="any" name="bottom_right_latitude" placeholder="Latitude" required>
+                <input type="number" step="any" name="bottom_right_longitude" placeholder="Longitude" required>
             </div>
 
             <button type="submit">Submit</button>
         </form>
     </section>
-
-    <section id="satellite-image-section" style="display: none; flex-direction: column; align-items: center;">
-        <div id="coordinates-display"></div>
-
-        <div class="image-carousel">
-            <button id="prev-button">&#9664;</button>
-            <img id="satellite-image" src="" alt="Satellite View">
-            <button id="next-button">&#9654;</button>
-        </div>
-
-        <div id="legend" class="legend">
-            <h3>Land Cover Legend</h3>
-            <div id="legend-items"></div>
-        </div>
-    </section>
-
-    <script src="{{ url_for('static', filename='scripts/script.js') }}" defer></script>
 </body>
 
 </html>

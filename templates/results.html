@@ -45,7 +45,9 @@
                         {% for key, class_info in landcover_classes.items() %}
                         <div class="legend-item">
                             <span class="legend-color" style="background-color: {{ class_info.color }};"></span>
-                            <span class="legend-label">{{ class_info.name }}</span>
+                            <span class="legend-label">
+                                {{ class_info.name }} - {{ landcover_areas[class_info.name] | round(2) }} ha
+                            </span>
                         </div>
                         {% endfor %}
                     </div>

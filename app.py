@@ -1,6 +1,24 @@
 from flask import Flask, request, render_template
 import ee
 
+def calculate_carbon_stocks(areas):
+# Calculates carbon stocks of project area using averages for each land feature
+    total_carbon_stocks = 0
+    for class_value, class_info in landcover_classes.items():
+        class_name = class_info["name"]
+        total_carbon_stocks += class_info["avg_carbon_stocks"] * areas[class_name]
+    return total_carbon_stocks
+        
+def reforest(areas):
+# Convert areas of shrubland, grassland, and cropland to tree cover
+    reforested_areas = areas.copy()
+    reforested_areas["Tree Cover"] += \
+        reforested_areas["Shrubland"] + reforested_areas["Grassland"] + reforested_areas["Cropland"]
+    reforested_areas["Shrubland"] = 0
+    reforested_areas["Grassland"] = 0
+    reforested_areas["Cropland"] = 0
+    return reforested_areas
+
 app = Flask(__name__)
 
 # Set up Earth Engine authentication
@@ -9,17 +27,17 @@ try:
 except ee.EEException as e:
     print("Google Earth Engine initialization error:", e)
 
-# Define land cover classes and their corresponding colors
+# Define land cover classes with their corresponding colors and average carbon stocks per hectare (tC/ha)
 landcover_classes = {
-    10: {"name": "Tree Cover", "color": "#006400"},               # Dark Green
-    20: {"name": "Shrubland", "color": "#228B22"},                # Forest Green
-    30: {"name": "Grassland", "color": "#7CFC00"},                # Lawn Green
-    40: {"name": "Cropland", "color": "#FFD700"},                 # Gold
-    50: {"name": "Built-up", "color": "#A9A9A9"},                  # Dark Gray
-    60: {"name": "Bare / Sparse Vegetation", "color": "#DEB887"}, # Burly Wood
-    70: {"name": "Snow and Ice", "color": "#FFFFFF"},              # White
-    80: {"name": "Permanent Water Bodies", "color": "#1E90FF"},    # Dodger Blue
-    90: {"name": "Herbaceous Wetland", "color": "#00CED1"},       # Dark Turquoise
+    10: {"name": "Tree Cover", "color": "#006400", "avg_carbon_stocks": 350},               # Dark Green
+    20: {"name": "Shrubland", "color": "#228B22", "avg_carbon_stocks": 110},                # Forest Green
+    30: {"name": "Grassland", "color": "#7CFC00", "avg_carbon_stocks": 65},                 # Lawn Green
+    40: {"name": "Cropland", "color": "#FFD700", "avg_carbon_stocks": 58},                  # Gold
+    50: {"name": "Built-up", "color": "#A9A9A9", "avg_carbon_stocks": 20},                  # Dark Gray
+    60: {"name": "Bare / Sparse Vegetation", "color": "#DEB887", "avg_carbon_stocks": 11},  # Burly Wood
+    70: {"name": "Snow and Ice", "color": "#FFFFFF", "avg_carbon_stocks": 0},               # White
+    80: {"name": "Permanent Water Bodies", "color": "#1E90FF", "avg_carbon_stocks": 0},     # Dodger Blue
+    90: {"name": "Herbaceous Wetland", "color": "#00CED1", "avg_carbon_stocks": 260},       # Dark Turquoise
 }
 
 @app.route('/')
@@ -57,7 +75,7 @@ def submit_coordinates():
         image_url = composite.getThumbURL({'region': rectangle, 'dimensions': 500})
 
         # Load and visualize the ESA WorldCover data
-        landcover = ee.Image('ESA/WorldCover/v100/2020')
+        landcover = ee.Image('ESA/WorldCover/v200/2021')
         landcoverVis = {
             'min': 10,
             'max': 90,
@@ -85,6 +103,21 @@ def submit_coordinates():
             # Convert the area to hectares (1 hectare = 10,000 m²)
             areas[class_name] = area['Map'] / 10000 if area['Map'] else 0
 
+        # Calculate carbon stocks (tC) of current project area
+        current_carbon_stocks = calculate_carbon_stocks(areas)
+
+        # Calculate potential carbon stocks (tC) of reforested project area
+        reforested_areas = reforest(areas)
+        reforested_carbon_stocks = calculate_carbon_stocks(reforested_areas)
+
+        # Calculate additionality (tC) and from reforestation project
+        additionality = reforested_carbon_stocks - current_carbon_stocks 
+
+        # Calculate number of carbon credits earned from reforestation project
+        # 1 tonne of carbon (tC) corresponds to 3.667 carbon credits in terms of CO2 equivalent
+        carbon_credits = additionality * 3.667
+        print(carbon_credits)
+
         return render_template('results.html',
                                image_url=image_url,
                                landcover_image_url=landcover_image_url,
@@ -93,7 +126,12 @@ def submit_coordinates():
                                bottom_lat=bottom_lat,
                                right_lon=right_lon,
                                landcover_classes=landcover_classes,
-                               landcover_areas=areas)
+                               landcover_areas=areas,
+                               current_carbon_stocks=current_carbon_stocks,
+                               reforested_carbon_stocks=reforested_carbon_stocks,
+                               additionality=additionality,
+                               carbon_credits=carbon_credits
+                               )
     except Exception as e:
         print("Error processing coordinates:", e)
         return render_template('error.html', error_message='An error occurred while processing the coordinates.')

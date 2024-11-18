@@ -6,14 +6,14 @@ def calculate_carbon_stocks(areas):
     total_carbon_stocks = 0
     for class_value, class_info in landcover_classes.items():
         class_name = class_info["name"]
-        total_carbon_stocks += class_info["avg_carbon_stocks"] * areas[class_name]
+        total_carbon_stocks += class_info["avg_carbon_stocks"] * areas[class_name] # per year, ONLY TRUE ONCE FULLLY FORESTED, approx 10 years 
     return total_carbon_stocks
         
 def reforest(areas):
 # Convert areas of shrubland, grassland, and cropland to tree cover
     reforested_areas = areas.copy()
     reforested_areas["Tree Cover"] += \
-        reforested_areas["Shrubland"] + reforested_areas["Grassland"] + reforested_areas["Cropland"]
+        reforested_areas["Shrubland"] + reforested_areas["Grassland"] + reforested_areas["Cropland"] #take several years to turn to crop land 
     reforested_areas["Shrubland"] = 0
     reforested_areas["Grassland"] = 0
     reforested_areas["Cropland"] = 0
@@ -27,17 +27,17 @@ try:
 except ee.EEException as e:
     print("Google Earth Engine initialization error:", e)
 
-# Define land cover classes with their corresponding colors and average carbon stocks per hectare (tC/ha)
+# Define land cover classes with their corresponding colors and average carbon stocks per hectare (tC/ha/year)
 landcover_classes = {
-    10: {"name": "Tree Cover", "color": "#006400", "avg_carbon_stocks": 350},               # Dark Green
-    20: {"name": "Shrubland", "color": "#228B22", "avg_carbon_stocks": 110},                # Forest Green
-    30: {"name": "Grassland", "color": "#7CFC00", "avg_carbon_stocks": 65},                 # Lawn Green
-    40: {"name": "Cropland", "color": "#FFD700", "avg_carbon_stocks": 58},                  # Gold
-    50: {"name": "Built-up", "color": "#A9A9A9", "avg_carbon_stocks": 20},                  # Dark Gray
-    60: {"name": "Bare / Sparse Vegetation", "color": "#DEB887", "avg_carbon_stocks": 11},  # Burly Wood
+    10: {"name": "Tree Cover", "color": "#006400", "avg_carbon_stocks": 25},                # Dark Green, the avg carbon stocks/year are for fully forested areas 
+    20: {"name": "Shrubland", "color": "#228B22", "avg_carbon_stocks": 10},                # Forest Green
+    30: {"name": "Grassland", "color": "#7CFC00", "avg_carbon_stocks": 4},                 # Lawn Green
+    40: {"name": "Cropland", "color": "#FFD700", "avg_carbon_stocks": 5},                  # Gold
+    50: {"name": "Built-up", "color": "#A9A9A9", "avg_carbon_stocks": 0.1},                  # Dark Gray
+    60: {"name": "Bare / Sparse Vegetation", "color": "#DEB887", "avg_carbon_stocks": 0.5},  # Burly Wood
     70: {"name": "Snow and Ice", "color": "#FFFFFF", "avg_carbon_stocks": 0},               # White
     80: {"name": "Permanent Water Bodies", "color": "#1E90FF", "avg_carbon_stocks": 0},     # Dodger Blue
-    90: {"name": "Herbaceous Wetland", "color": "#00CED1", "avg_carbon_stocks": 260},       # Dark Turquoise
+    90: {"name": "Herbaceous Wetland", "color": "#00CED1", "avg_carbon_stocks": 25},       # Dark Turquoise
 }
 
 @app.route('/')
@@ -114,8 +114,8 @@ def submit_coordinates():
         additionality = reforested_carbon_stocks - current_carbon_stocks 
 
         # Calculate number of carbon credits earned from reforestation project
-        # 1 tonne of carbon (tC) corresponds to 3.667 carbon credits in terms of CO2 equivalent
-        carbon_credits = additionality * 3.667
+        # 1 tonne of carbon dioxide contains 0.273 tonnes of Carbon, and 1 tonne of CO2 = 1 Carbon Credit
+        carbon_credits = additionality / 0.273
         print(carbon_credits)
 
         return render_template('results.html',

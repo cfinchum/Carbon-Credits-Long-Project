@@ -1,6 +1,47 @@
 from flask import Flask, request, render_template,jsonify
 import ee, math
 
+
+def carbon_stock_change(t, max_biomass, growth_rate, mortality_rate, root_to_shoot, areas, baseline):
+    # Calculates the change in carbon stocks at year t compared to year t=0
+
+    # Calculate the average carbon stock (tC/ha) in aboveground woody biomass in the project scenario in year t
+    aboveground_woody_biomass = calculate_aboveground_woody_biomass(t, max_biomass, growth_rate, mortality_rate)
+    aboveground_woody_biomass_carbon_stock_avg = aboveground_woody_biomass * 0.47 # Carbon makes up approximately 47% of the dry biomass for most tree species
+
+    # Calculate the average carbon stock (tC/ha) in woody biomass in the project scenario in year t
+    woody_biomass_carbon_stock_avg = aboveground_woody_biomass_carbon_stock_avg * (1 + root_to_shoot)
+
+    # Calculate the total carbon stocks (tC) of the reforested areas in year t
+    converted_area = areas["Shrubland"] + areas["Grassland"] + areas["Cropland"]
+    total_carbon_stocks = woody_biomass_carbon_stock_avg * converted_area
+
+    # Calculate and return change in carbon stocks
+    change_in_carbon_stocks = total_carbon_stocks - baseline
+    return change_in_carbon_stocks
+
+
+def calculate_aboveground_woody_biomass(t, max_biomass, growth_rate, mortality_rate=0.1):
+    # Caculates the aboveground woody biomass (t/ha) in the project scenario at year t
+
+    # Logistic growth model to estimate biomass accumulation
+    biomass = max_biomass * (1 - math.exp(-growth_rate * t))
+
+    # Adjust biomass for mortality rate
+    adjusted_biomass = biomass * (1 - mortality_rate)
+
+    return adjusted_biomass
+
+def calculate_baseline(areas):
+    # Calculates the baseline carbon stocks (tC) of the area to be converted to tree cover by getting
+    # the sum of the products of the areas of each land feature to be converted and their respective average carbon stocks (tC/ha)
+    shrubland_carbon_stocks = landcover_classes[20]["avg_carbon_stocks"] * areas["Shrubland"]
+    grassland_carbon_stocks = landcover_classes[30]["avg_carbon_stocks"] * areas["Grassland"]
+    cropland_carbon_stocks = landcover_classes[40]["avg_carbon_stocks"] * areas["Cropland"]
+    baseline = shrubland_carbon_stocks + grassland_carbon_stocks + cropland_carbon_stocks
+    return baseline
+
+
 def calculate_carbon_stocks(areas):
 # Calculates carbon stocks of project area using averages for each land feature
     total_carbon_stocks = 0
@@ -47,7 +88,6 @@ def index():
 @app.route('/submit_coordinates', methods=['POST'])
 def submit_coordinates():
     data = request.form
-
     try:
         # Extract coordinates from user input
         top_left_lat = float(data['top_left_latitude'])
@@ -128,8 +168,12 @@ def submit_coordinates():
                                carbon_credits_earned=carbon_credits_earned
                                )
     except Exception as e:
-        print("Error processing coordinates:", e)
-        return render_template('error.html', error_message='An error occurred while processing the coordinates.')
+        # print("Error processing coordinates:", e)
+        # return render_template('error.html', error_message='An error occurred while processing the coordinates.')
+        import traceback
+        print("Error processing coordinates:", str(e))
+        print("Full traceback:", traceback.format_exc())
+        return render_template('error.html', error_message=str(e))
 
 if __name__ == '__main__':
     app.run(debug=True)

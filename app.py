@@ -1,5 +1,5 @@
-from flask import Flask, request, jsonify, render_template
-import ee
+from flask import Flask, request, render_template,jsonify
+import ee, math
 
 def calculate_carbon_stocks(areas):
 # Calculates carbon stocks of project area using averages for each land feature
@@ -29,15 +29,15 @@ except ee.EEException as e:
 
 # Define land cover classes with their corresponding colors and average carbon stocks per hectare (tC/ha)
 landcover_classes = {
-    10: {"name": "Tree Cover", "color": "#006400", "avg_carbon_stocks": 350},               # Dark Green
-    20: {"name": "Shrubland", "color": "#228B22", "avg_carbon_stocks": 110},                # Forest Green
-    30: {"name": "Grassland", "color": "#7CFC00", "avg_carbon_stocks": 65},                 # Lawn Green
-    40: {"name": "Cropland", "color": "#FFD700", "avg_carbon_stocks": 58},                  # Gold
-    50: {"name": "Built-up", "color": "#A9A9A9", "avg_carbon_stocks": 20},                  # Dark Gray
-    60: {"name": "Bare / Sparse Vegetation", "color": "#DEB887", "avg_carbon_stocks": 11},  # Burly Wood
+    10: {"name": "Tree Cover", "color": "#006400", "avg_carbon_stocks": 25},               # Dark Green
+    20: {"name": "Shrubland", "color": "#228B22", "avg_carbon_stocks": 10},                # Forest Green
+    30: {"name": "Grassland", "color": "#7CFC00", "avg_carbon_stocks": 4},                 # Lawn Green
+    40: {"name": "Cropland", "color": "#FFD700", "avg_carbon_stocks": 5},                  # Gold
+    50: {"name": "Built-up", "color": "#A9A9A9", "avg_carbon_stocks": 0.1},                  # Dark Gray
+    60: {"name": "Bare / Sparse Vegetation", "color": "#DEB887", "avg_carbon_stocks": 0.5},  # Burly Wood
     70: {"name": "Snow and Ice", "color": "#FFFFFF", "avg_carbon_stocks": 0},               # White
     80: {"name": "Permanent Water Bodies", "color": "#1E90FF", "avg_carbon_stocks": 0},     # Dodger Blue
-    90: {"name": "Herbaceous Wetland", "color": "#00CED1", "avg_carbon_stocks": 260},       # Dark Turquoise
+    90: {"name": "Herbaceous Wetland", "color": "#00CED1", "avg_carbon_stocks": 25},       # Dark Turquoise
 }
 
 @app.route('/')
@@ -103,20 +103,17 @@ def submit_coordinates():
             # Convert the area to hectares (1 hectare = 10,000 m²)
             areas[class_name] = area['Map'] / 10000 if area['Map'] else 0
 
-        # Calculate carbon stocks (tC) of current project area
-        current_carbon_stocks = calculate_carbon_stocks(areas)
+        baseline = calculate_baseline(areas)
 
-        # Calculate potential carbon stocks (tC) of reforested project area
-        reforested_areas = reforest(areas)
-        reforested_carbon_stocks = calculate_carbon_stocks(reforested_areas)
-
-        # Calculate additionality (tC) and from reforestation project
-        additionality = reforested_carbon_stocks - current_carbon_stocks 
-
-        # Calculate number of carbon credits earned from reforestation project
-        # 1 tonne of carbon (tC) corresponds to 3.667 carbon credits in terms of CO2 equivalent
-        carbon_credits = additionality * 3.667
-        print(carbon_credits)
+        # Calculate carbon stock changes (tC) in years 1-10
+        carbon_stock_changes = []
+        for year in range(1, 11):
+            carbon_stock_changes.append(carbon_stock_change(year, 150, 0.1, 0.1, 0.25, areas, baseline))
+        
+        # Calculate carbon credits earned in years 1-10
+        carbon_credits_earned = []
+        for year in range(10):
+            carbon_credits_earned.append(carbon_stock_changes[year] * (44/12))
 
         return render_template('results.html',
                                image_url=image_url,
@@ -127,10 +124,8 @@ def submit_coordinates():
                                right_lon=right_lon,
                                landcover_classes=landcover_classes,
                                landcover_areas=areas,
-                               current_carbon_stocks=current_carbon_stocks,
-                               reforested_carbon_stocks=reforested_carbon_stocks,
-                               additionality=additionality,
-                               carbon_credits=carbon_credits
+                               carbon_stock_changes=carbon_stock_changes,
+                               carbon_credits_earned=carbon_credits_earned
                                )
     except Exception as e:
         print("Error processing coordinates:", e)

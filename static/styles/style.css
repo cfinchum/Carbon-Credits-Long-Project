@@ -233,9 +233,9 @@ button:hover {
     display: flex;
     align-items: center;
     justify-content: center;
-    position: absolute;
+    position: relative;
     top: 22%;
-    left: 26%;
+    left: -5%;
     width: 800px;
     height: 600px;
 }
